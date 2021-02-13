@@ -34,20 +34,6 @@ pipeline {
                 }
             }
         }
-        stage('sonarqube analysis') {
-          steps {
-            container ('maven') {
-              withCredentials([string(credentialsId: "$SONAR_CREDENTIAL_ID", variable: 'SONAR_TOKEN')]) {
-                withSonarQubeEnv('sonar') {
-                 sh "mvn sonar:sonar -o -gs `pwd`/configuration/settings.xml -Dsonar.login=$SONAR_TOKEN"
-                }
-              }
-              timeout(time: 1, unit: 'HOURS') {
-                waitForQualityGate abortPipeline: true
-              }
-            }
-          }
-        }
         stage ('build & push') {
             steps {
                 container ('maven') {
@@ -62,9 +48,6 @@ pipeline {
         }
 
         stage('push latest'){
-           when{
-             branch 'sonarqube'
-           }
            steps{
                 container ('maven') {
                   sh 'docker tag  $REGISTRY/$DOCKERHUB_NAMESPACE/$APP_NAME:SNAPSHOT-$BRANCH_NAME-$BUILD_NUMBER $REGISTRY/$DOCKERHUB_NAMESPACE/$APP_NAME:latest '
@@ -74,9 +57,6 @@ pipeline {
         }
 
         stage('deploy to dev') {
-          when{
-            branch 'sonarqube'
-          }
           steps {
             input(id: 'deploy-to-dev', message: 'deploy to dev?')
             kubernetesDeploy(configs: 'deploy/dev-ol/**', enableConfigSubstitution: true, kubeconfigId: "$KUBECONFIG_CREDENTIAL_ID")
